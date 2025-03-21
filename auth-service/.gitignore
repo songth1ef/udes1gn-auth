@@ -1,0 +1,11 @@
+
+node_modules/
+dist/
+build/
+# 环境变量文件
+.env
+# 密钥文件
+src/auth/private_key.pem
+src/auth/public_key.pem
+# 日志文件
+*.log
