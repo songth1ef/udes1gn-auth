@@ -7,7 +7,7 @@
 |                | auth-service (Authentication Server) | client-service (Client)   | resource-service (Resource Server) |
 | -------------- | ------------------------------------ | ------------------------- | --------------------------------- |
 | domain         | auth.udes1gn.com                    | client.udes1gn.com        | api.udes1gn.com                  |
-| port           | 8001                                 | 8002                      | 8003                             |
+| port           | 8101                                 | 8102                      | 8103                             |
 | Symmetric Mode | ✅                                   |                           | ✅                                |
 | Asymmetric Mode| ✅                                   |                           | ✅                                |
 | Functionality  | register user, register client, login | getUserInfo, refresh token | verify token, main business logic |
