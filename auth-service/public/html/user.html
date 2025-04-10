@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        form {
+            margin: 20px 0;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            padding: 10px;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>
+        <a href="/">首页</a>
+    </h2>
+    <h1>用户管理</h1>
+    <h2>新增用户</h2>
+    <form id="createUserForm">
+        <input type="text" id="username" placeholder="用户名" required />
+        <input type="password" id="password" placeholder="密码" required />
+        <input type="text" id="email" placeholder="邮箱" />
+        <input type="text" id="phone" placeholder="电话" />
+        <button type="submit">创建用户</button>
+    </form>
+    <div id="createResult"></div>
+
+    <h2>用户列表</h2>
+    <table id="userTable">
+        <thead>
+            <tr>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>电话</th>
+                <th>角色</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        document.getElementById('createUserForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+
+            fetch('/auth/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password, email, phone }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('createResult').innerHTML = `用户创建成功: ${data.username}`;
+                    loadUsers(); // 刷新用户列表
+                })
+                .catch(error => {
+                    console.error('创建用户时发生错误:', error);
+                    document.getElementById('createResult').innerHTML = '创建用户时发生错误';
+                });
+        });
+
+        function loadUsers() {
+            fetch('/auth/users')
+                .then(response => response.json())
+                .then(users => {
+                    const tableBody = document.querySelector('#userTable tbody');
+                    tableBody.innerHTML = ''; // 清空表格
+                    users.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${user.username}</td>
+                            <td>${user.email}</td>
+                            <td>${user.phone}</td>
+                            <td>${Array.isArray(user.roles) && user.roles.length > 0 ? user.roles.map(role => role.name).join(', ') : '无角色'}</td>
+                            <td>
+                                <select onchange="updateUserRole(${user.userId}, this.value)">
+                                    <option value="">选择角色</option>
+                                    ${user.roles.map(role => `<option value="${role.id}">${role.name}</option>`).join('')}
+                                </select>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('获取用户列表时发生错误:', error);
+                });
+        }
+
+        function loadRoles() {
+            fetch('/roles')
+                .then(response => response.json())
+                .then(roles => {
+                    const roleOptions = roles.map(role => `<option value="${role.id}">${role.name}</option>`).join('');
+                    const selects = document.querySelectorAll('select');
+                    selects.forEach(select => {
+                        select.innerHTML += roleOptions; // 添加角色选项
+                    });
+                })
+                .catch(error => {
+                    console.error('获取角色列表时发生错误:', error);
+                });
+        }
+
+        function updateUserRole(userId, roleId) {
+            if (roleId) {
+                fetch(`/auth/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ roles: [parseInt(roleId)] }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(`用户角色更新成功: ${data.username}`);
+                        loadUsers(); // 刷新用户列表
+                    })
+                    .catch(error => {
+                        console.error('更新用户角色时发生错误:', error);
+                    });
+            }
+        }
+
+        // 初始加载用户列表和角色
+        loadUsers();
+        loadRoles();
+    </script>
+</body>
+
+</html>

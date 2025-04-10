@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>操作管理</title>
+</head>
+
+<body>
+    <h2>
+        <a href="/">首页</a>
+    </h2>
+    <h1>操作管理</h1>
+
+    <h2>创建操作</h2>
+    <form id="createOperationForm">
+        <input type="text" id="operationName" placeholder="操作名称" required />
+        <input type="text" id="allowedRoleIds" placeholder="允许角色ID（逗号分隔）" />
+        <button type="submit">创建操作</button>
+    </form>
+    <div id="createResult"></div>
+
+    <h2>操作列表</h2>
+    <table id="operationsTable">
+        <thead>
+            <tr>
+                <th>操作名称</th>
+                <th>允许角色ID</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        document.getElementById('createOperationForm').addEventListener('submit', function (event) {
+            event.preventDefault(); // 防止表单默认提交
+
+            const operationName = document.getElementById('operationName').value;
+            const allowedRoleIds = document.getElementById('allowedRoleIds').value.split(',').map(id => id.trim());
+
+            fetch('/operations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name: operationName, allowedRoleIds }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('createResult').innerHTML = `操作创建成功: ${data.name}`;
+                    document.getElementById('createOperationForm').reset(); // 清空表单
+                    loadOperations(); // 刷新操作列表
+                })
+                .catch(error => {
+                    console.error('创建操作时发生错误:', error);
+                    document.getElementById('createResult').innerHTML = '创建操作时发生错误';
+                });
+        });
+
+        function loadOperations() {
+            fetch('/operations')
+                .then(response => response.json())
+                .then(operations => {
+                    const tableBody = document.querySelector('#operationsTable tbody');
+                    tableBody.innerHTML = ''; // 清空表格
+                    operations.forEach(operation => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                        <td>${operation.name}</td>
+                        <td>${operation.allowedRoleIds.join(', ')}</td>
+                        <td>
+                            <button onclick="editOperation(${operation.id})">编辑</button>
+                            <button onclick="deleteOperation(${operation.id})">删除</button>
+                        </td>
+                    `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('获取操作列表时发生错误:', error);
+                });
+        }
+
+        function editOperation(id) {
+            const operationName = prompt("请输入新的操作名称:");
+            const allowedRoleIds = prompt("请输入新的允许角色ID（逗号分隔）:");
+
+            if (operationName && allowedRoleIds) {
+                fetch(`/operations/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: operationName, allowedRoleIds: allowedRoleIds.split(',').map(id => id.trim()) }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('操作更新成功:', data);
+                        loadOperations(); // 刷新操作列表
+                    })
+                    .catch(error => {
+                        console.error('更新操作时发生错误:', error);
+                    });
+            }
+        }
+
+        function deleteOperation(id) {
+            if (confirm("确定要删除该操作吗？")) {
+                fetch(`/operations/${id}`, {
+                    method: 'DELETE',
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('删除操作失败');
+                        }
+                        console.log('操作删除成功');
+                        loadOperations(); // 刷新操作列表
+                    })
+                    .catch(error => {
+                        console.error('删除操作时发生错误:', error);
+                    });
+            }
+        }
+
+        // 页面加载时获取操作列表
+        loadOperations();
+    </script>
+</body>
+
+</html>

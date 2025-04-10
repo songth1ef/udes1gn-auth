@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }
+
+        .login-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            width: 320px;
+        }
+
+        .login-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .captcha-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .captcha-input {
+            flex: 1;
+        }
+
+        .captcha-image {
+            width: 100px;
+            height: 38px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            background-color: #40a9ff;
+        }
+
+        .error-message {
+            color: #ff4d4f;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2 class="login-title">系统登录</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" class="form-control" placeholder="请输入用户名">
+                <div id="usernameError" class="error-message">用户名不能为空</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" class="form-control" placeholder="请输入密码">
+                <div id="passwordError" class="error-message">密码不能为空</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="captcha">验证码</label>
+                <div class="captcha-container">
+                    <input type="text" id="captcha" class="form-control captcha-input" placeholder="请输入验证码">
+                    <img id="captchaImage" class="captcha-image" src="" alt="验证码" onclick="refreshCaptcha()">
+                </div>
+                <div id="captchaError" class="error-message">验证码不能为空</div>
+            </div>
+            
+            <button type="button" class="btn" onclick="handleLogin()">登录</button>
+        </form>
+    </div>
+
+    <script>
+        let captchaId = null;
+        
+        // 页面加载时获取验证码
+        window.onload = function() {
+            refreshCaptcha();
+        };
+        
+        // 刷新验证码
+        function refreshCaptcha() {
+            const envUrl = window.location.origin;
+            
+            fetch(`${envUrl}/getCaptcha`)
+                .then(response => response.text())
+                .then(r => {
+                    if (r) {
+                        const result = JSON.parse(r);
+                        document.getElementById('captchaImage').src = result.image;
+                        captchaId = result.captchaId;
+                    }
+                })
+                .catch(error => console.log('获取验证码失败:', error));
+        }
+        
+        // 表单验证
+        function validateForm() {
+            let isValid = true;
+            
+            // 验证用户名
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                document.getElementById('usernameError').style.display = 'block';
+                isValid = false;
+            } else {
+                document.getElementById('usernameError').style.display = 'none';
+            }
+            
+            // 验证密码
+            const password = document.getElementById('password').value.trim();
+            if (!password) {
+                document.getElementById('passwordError').style.display = 'block';
+                isValid = false;
+            } else {
+                document.getElementById('passwordError').style.display = 'none';
+            }
+            
+            // 验证验证码
+            const captcha = document.getElementById('captcha').value.trim();
+            if (!captcha) {
+                document.getElementById('captchaError').style.display = 'block';
+                isValid = false;
+            } else {
+                document.getElementById('captchaError').style.display = 'none';
+            }
+            
+            return isValid;
+        }
+        
+        // 处理登录
+        function handleLogin() {
+            if (!validateForm()) {
+                return;
+            }
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const captcha = document.getElementById('captcha').value.trim();
+            
+            const params = new URLSearchParams();
+            params.append('username', username);
+            params.append('password', password);
+            params.append('captcha', captcha);
+            params.append('captchaId', captchaId);
+            
+            // 添加语言参数
+            const lang = localStorage.getItem('lang') || 'zh-CN';
+            params.append('lang', lang);
+            
+            // 添加URL参数（如果存在）
+            const urlParams = new URLSearchParams(window.location.search);
+            ['client_id', 'redirect_uri', 'response_type', 'scope', 'state'].forEach(param => {
+                const value = urlParams.get(param);
+                if (value) {
+                    params.append(param, value);
+                }
+            });
+            
+            const envUrl = window.location.origin;
+            
+            fetch(`${envUrl}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString(),
+            })
+            .then(response => {
+                if (response.redirected && response.url) {
+                    // 服务器返回了重定向
+                    console.log('重定向URL:', response.url);
+                    
+                    // 强制替换HTTPS为HTTP并手动导航
+                    let finalUrl;
+                    if (response.url.startsWith('https:')) {
+                        finalUrl = response.url.replace('https:', 'http:');
+                        console.log('强制替换为HTTP:', finalUrl);
+                    } else {
+                        finalUrl = response.url;
+                    }
+                    window.location.href = finalUrl;
+                } else {
+                    return response.json();
+                }
+            })
+            .then(data => {
+                if (typeof data === 'object') {
+                    if (data.code === -1) {
+                        refreshCaptcha();
+                        alert(data.message);
+                    } else if (data.error === "invalid_captcha") {
+                        refreshCaptcha();
+                        alert('验证码错误');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('登录请求失败:', error);
+                alert('登录失败，请稍后重试');
+            });
+        }
+    </script>
+</body>
+</html>

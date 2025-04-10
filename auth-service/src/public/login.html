@@ -1,0 +1,18 @@
+            .then(response => {
+                if (response.redirected && response.url) {
+                    // 服务器返回了重定向
+                    console.log('重定向URL:', response.url);
+                    
+                    // 强制替换HTTPS为HTTP并手动导航
+                    let finalUrl;
+                    if (response.url.startsWith('https:')) {
+                        finalUrl = response.url.replace('https:', 'http:');
+                        console.log('强制替换为HTTP:', finalUrl);
+                    } else {
+                        finalUrl = window.location.origin;
+                    }
+                    window.location.href = finalUrl;
+                } else {
+                    return response.json();
+                }
+            }) 

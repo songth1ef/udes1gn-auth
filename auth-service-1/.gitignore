@@ -1,0 +1,9 @@
+
+node_modules/
+dist/
+build/
+# 密钥文件
+src/auth/tools/private_key.pem
+src/auth/tools/public_key.pem
+# 日志文件
+*.log

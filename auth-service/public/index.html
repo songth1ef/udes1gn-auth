@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认证服务器管理页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            word-wrap: break-word;
+            max-width: 200px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        form {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        button {
+            display: block;
+            margin: 10px 0;
+            padding: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        #userInfo,
+        #clientList,
+        #addClientForm {
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>认证服务器管理页面</h1>
+
+    <div id="userInfo">
+        <h2>用户信息</h2>
+        <p id="username"></p>
+        <p id="email"></p>
+        <p id="sub"></p>
+        <p id="roles"></p>
+    </div>
+
+    <div id="userList">
+        <h2>用户列表</h2>
+        <table id="userTable">
+            <thead>
+                <tr>
+                    <th>用户名</th>
+                    <th>邮箱</th>
+                    <th>ID</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <h2>
+        <a href="/html/user.html">用户管理</a>
+    </h2>
+    <h2>
+        <a href="/html/role.html">权限管理</a>
+    </h2>
+    <h2>
+        <a href="/html/route.html">菜单管理</a>
+    </h2>
+    <h2>
+        <a href="/html/operation.html">操作管理</a>
+    </h2>
+
+    <div id="clientList">
+        <h2>客户端列表</h2>
+        <table id="clientTable">
+            <thead>
+                <tr>
+                    <th>名称</th>
+                    <th>客户端ID</th>
+                    <th>客户端密钥</th>
+                    <th>重定向URI</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="addClientForm">
+        <h2>添加新客户端</h2>
+        <form id="registerClientForm">
+            <input type="text" name="name" placeholder="客户端名称" required>
+            <input type="url" name="redirectUri" placeholder="重定向URI" required>
+            <button type="submit">注册客户端</button>
+        </form>
+        <div id="registerResult"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 获取用户信息
+            fetch('/auth/userinfo', {
+                method: 'GET',
+                credentials: 'include'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('username').textContent = '用户名: ' + data.username;
+                    document.getElementById('email').textContent = '邮箱: ' + data.email;
+                    document.getElementById('sub').textContent = 'ID: ' + data.sub;
+                    document.getElementById('roles').textContent = '角色: ' + (Array.isArray(data.roles) && data.roles.length > 0 ? data.roles.map(role => role.name).join(', ') : '无角色');
+                    console.log(data);
+
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('userInfo').innerHTML = '<p>获取用户信息失败,请先登录</p>';
+                });
+
+            // 获取客户端列表
+            fetch('/auth/clients')
+                .then(response => response.json())
+                .then(clients => {
+                    const tableBody = document.querySelector('#clientTable tbody');
+                    clients.forEach(client => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${client.name}</td>
+                            <td>${client.clientId}</td>
+                            <td>${client.clientSecret}</td>
+                            <td>${client.redirectUris.join(', ')}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('clientList').innerHTML += '<p>获取客户端列表时发生错误</p>';
+                });
+
+            // 注册新客户端
+            const form = document.getElementById('registerClientForm');
+            const result = document.getElementById('registerResult');
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                const data = {
+                    name: formData.get('name'),
+                    redirectUris: [formData.get('redirectUri')]
+                };
+
+                fetch('/auth/registerClient', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        result.innerHTML = `
+                        <h3>客户端注册成功</h3>
+                        <p>客户端ID: ${data.clientId}</p>
+                        <p>客户端密钥: ${data.clientSecret}</p>
+                        <p>名称: ${data.name}</p>
+                        <p>重定向URI: ${data.redirectUris.join(', ')}</p>
+                    `;
+                        // 刷新客户端列表
+                        location.reload();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        result.innerHTML = '<p>注册客户端时发生错误</p>';
+                    });
+            });
+
+            // 获取用户列表
+            fetch('/auth/users')
+                .then(response => response.json())
+                .then(users => {
+                    const tableBody = document.querySelector('#userTable tbody');
+                    users.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${user.username}</td>
+                            <td>${user.email}</td>
+                            <td>${user.userId}</td>
+                            <td>${Array.isArray(user.roles) && user.roles.length > 0 ? user.roles.map(role => role.name).join(', ') : '无角色'}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('userList').innerHTML += '<p>获取用户列表时发生错误</p>';
+                });
+        });
+    </script>
+</body>
+
+</html>

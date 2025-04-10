@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建角色</title>
+    <style>
+        /* 添加样式 */
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        form {
+            margin: 20px 0;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .tree {
+            margin: 20px 0;
+            padding-left: 20px;
+        }
+
+        .tree ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+
+        .tree li {
+            margin: 5px 0;
+        }
+
+        .expandable {
+            display: none;
+            margin-left: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>
+        <a href="/">首页</a>
+    </h2>
+    <h1>创建角色</h1>
+    <form id="createRoleForm">
+        <input type="text" id="roleName" placeholder="角色名称" required />
+        <h3>选择权限</h3>
+        <div id="routesTree" class="tree"></div>
+        <button type="submit">创建角色</button>
+    </form>
+    <div id="result"></div>
+
+    <h2>角色列表</h2>
+    <table id="rolesTable">
+        <thead>
+            <tr>
+                <th>角色名称</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        document.getElementById('createRoleForm').addEventListener('submit', function (event) {
+            event.preventDefault(); // 防止表单默认提交
+
+            const roleName = document.getElementById('roleName').value;
+            const selectedRoutes = Array.from(document.querySelectorAll('input[name="route"]:checked')).map(input => input.value);
+
+            fetch('/roles', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name: roleName, routes: selectedRoutes }),
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('网络响应不正常');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('result').innerHTML = `角色创建成功: ${data.name}`;
+                    document.getElementById('roleName').value = ''; // 清空输入框
+                    loadRoles(); // 刷新角色列表
+                })
+                .catch(error => {
+                    console.error('创建角色时发生错误:', error);
+                    document.getElementById('result').innerHTML = '创建角色时发生错误';
+                });
+        });
+
+        function loadRoles() {
+            fetch('/roles')
+                .then(response => response.json())
+                .then(roles => {
+                    const tableBody = document.querySelector('#rolesTable tbody');
+                    tableBody.innerHTML = ''; // 清空表格
+                    roles.forEach(role => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${role.name}</td>
+                            <td>
+                                <button onclick="toggleRoutes(${role.id}, this)">编辑权限</button>
+                                <div id="routes-${role.id}" class="expandable"></div>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('获取角色列表时发生错误:', error);
+                });
+        }
+        let editRoleId = null
+        function toggleRoutes(roleId, button) {
+            editRoleId = roleId
+            const routesContainer = document.getElementById(`routes-${roleId}`);
+            if (routesContainer.style.display === "none" || routesContainer.style.display === "") {
+                loadRoleRoutes(roleId, routesContainer);
+                routesContainer.style.display = "block";
+                button.textContent = "收起权限";
+            } else {
+                routesContainer.style.display = "none";
+                button.textContent = "编辑权限";
+            }
+        }
+
+        function loadRoleRoutes(roleId, container) {
+            fetch(`/roles/route/${roleId}`) // 假设有一个接口可以获取角色的路由
+                .then(response => response.json())
+                .then(routes => {
+                    container.innerHTML = ''; // 清空容器
+                    renderRoleRoutes(routes.routes, container); // 渲染角色的路由
+                })
+                .catch(error => {
+                    console.error('获取角色路由时发生错误:', error);
+                });
+        }
+
+        function renderRoleRoutes(routes, container) {
+            const ul = document.createElement('ul');
+
+            routes.forEach(route => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <label>
+                        <input type="checkbox" name="route" value="${route.id}" ${route.requiredRoles && route.requiredRoles.includes(editRoleId + '') ? 'checked' : ''} onchange="toggleRouteRole(${route.id}, this.checked)" />
+                        ${route.name || '无'} (${route.path})
+                    </label>
+                `;
+                ul.appendChild(li);
+            });
+            container.appendChild(ul);
+        }
+
+        function toggleRouteRole(routeId, isChecked) {
+            const roleId = editRoleId; // 获取当前角色的 ID
+            if (isChecked) {
+                // 选中状态，调用添加角色接口
+                fetch(`/routes/roles/${routeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ roleId: Number(roleId) }),
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('添加角色失败');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('角色添加成功:', data);
+                    })
+                    .catch(error => {
+                        console.error('添加角色时发生错误:', error);
+                    });
+            } else {
+                // 取消选中状态，调用删除角色接口
+                fetch(`/routes/roles/remove/${routeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ roleId: Number(roleId) }),
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('删除角色失败');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('角色删除成功:', data);
+                    })
+                    .catch(error => {
+                        console.error('删除角色时发生错误:', error);
+                    });
+            }
+        }
+
+        function loadRoutesTree() {
+            fetch('/routes/tree') // 调用获取树形结构的接口
+                .then(response => response.json())
+                .then(routes => {
+                    const treeContainer = document.getElementById('routesTree');
+                    treeContainer.innerHTML = ''; // 清空树形结构
+                    renderTree(routes, treeContainer); // 渲染树形结构
+                })
+                .catch(error => {
+                    console.error('获取路由树形结构时发生错误:', error);
+                });
+        }
+
+        function renderTree(routes, container) {
+            const ul = document.createElement('ul');
+            routes.forEach(route => {
+                const li = document.createElement('li');
+                li.innerHTML = `${route.name || '无'} (${route.path})`; // 显示路由名称和路径
+                ul.appendChild(li);
+                if (route.children && route.children.length > 0) {
+                    renderTree(route.children, li); // 递归渲染子路由
+                }
+            });
+            container.appendChild(ul);
+        }
+
+        // 页面加载时自动查询角色列表和路由树形结构
+        loadRoles();
+        loadRoutesTree();
+    </script>
+</body>
+
+</html>
